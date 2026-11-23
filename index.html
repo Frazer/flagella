@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FLAGELLA - a nanomachine assembly game</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    box-shadow: 0 0 0 2px #222, 0 0 40px #0058f855;
+  }
+  canvas:focus { outline: none; }
+
+  /* ---------- Inspiration / prologue screen ---------- */
+  #prologue {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: center; gap: 4vw;
+    padding: 3vh 4vw; box-sizing: border-box;
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at 30% 40%, #0a1440 0%, #00000a 70%);
+    font-family: "Courier New", ui-monospace, Menlo, monospace;
+    font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em;
+    color: #bcbcbc;
+  }
+  #prologue[hidden] { display: none; }
+  .pro-video { display: flex; flex-direction: column; align-items: center; gap: 10px; flex: none; }
+  .pro-frame {
+    height: min(78vh, 680px); aspect-ratio: 9 / 16;
+    border: 4px solid #3cbcfc; box-shadow: 0 0 0 4px #0058f8, 0 0 40px #3cbcfc66;
+    background: #000;
+  }
+  .pro-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .pro-frame { position: relative; }
+  .pro-frame iframe { pointer-events: none; }  /* no controls, no clicking: it just plays */
+  #pro-sound {
+    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+    font: inherit; font-size: 13px; color: #000; background: #f8b800; border: 0; padding: 8px 12px; cursor: pointer;
+    box-shadow: 0 0 0 3px #503000; animation: blink 1s steps(2) infinite;
+  }
+  #pro-sound[hidden] { display: none; }
+  .pro-credit { font-size: 11px; color: #7c7c7c; text-align: center; line-height: 1.5; }
+  .pro-credit a { color: #3cbcfc; text-decoration: none; }
+  .pro-credit a:hover { text-decoration: underline; }
+  .pro-text { max-width: 470px; font-size: 14px; line-height: 1.55; }
+  .pro-text canvas { display: block; width: 368px; height: 34px; box-shadow: none; margin-bottom: 6px; }
+  .pro-text h1 { font-size: 24px; line-height: 1.2; color: #58d854; margin: 0 0 16px; text-shadow: 3px 3px 0 #005800; }
+  .pro-text p { margin: 0 0 12px; }
+  .pro-text b { color: #3cbcfc; }
+  .pro-text .y { color: #f8b800; }
+  .pro-turn { font-size: 18px; color: #f8b800; margin: 20px 0 16px; text-shadow: 2px 2px 0 #503000; }
+  #pro-go {
+    font: inherit; font-size: 18px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: #000; background: #58d854; border: 0; padding: 12px 20px; cursor: pointer;
+    box-shadow: 0 0 0 4px #005800, 6px 6px 0 4px #000;
+  }
+  #pro-go:hover, #pro-go:focus-visible { background: #b8f818; outline: none; }
+  .pro-hint { margin-top: 14px; font-size: 11px; color: #7c7c7c; animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
+  @media (max-width: 820px) {
+    #prologue { flex-direction: column; overflow-y: auto; justify-content: flex-start; }
+    .pro-frame { height: 52vh; }
+    .pro-text { font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="screen" width="256" height="240" tabindex="0"></canvas>
+
+<div id="prologue" hidden>
+  <div class="pro-video">
+    <div class="pro-frame">
+      <iframe id="pro-iframe" data-src="https://www.youtube.com/embed/Xe52W5kRu1w?autoplay=1&controls=0&disablekb=1&fs=0&iv_load_policy=3&rel=0&playsinline=1&loop=1&playlist=Xe52W5kRu1w&enablejsapi=1"
+        title="Self Assembling Nanomachine: the Bacterial Flagellar Motor"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      <button id="pro-sound" hidden>&#128264; Tap for sound</button>
+    </div>
+    <div class="pro-credit">
+      Video: "Self Assembling Nanomachine" by iJEP Studio<br>
+      <a href="https://www.youtube.com/shorts/Xe52W5kRu1w" target="_blank" rel="noopener">Watch on YouTube &#9656;</a>
+    </div>
+  </div>
+  <div class="pro-text">
+    <canvas id="pro-label" width="184" height="17"></canvas>
+    <h1>A machine that builds itself</h1>
+    <p>This is the <b>bacterial flagellar motor</b>: a real rotary engine about <b>45 nanometres</b> across.
+       A thousand of them would fit across the width of a human hair.</p>
+    <p>Nobody builds it. Around <b>25 kinds of protein</b> drift and jiggle through the cell until they
+       click into place, <span class="y">in exactly the right order</span>. The core motor is finished in
+       <b>under half an hour</b>.</p>
+    <p>Then the tail grows from its tip: up to <b>20,000 flagellin</b> proteins are fed up a hollow core
+       just 2 nm wide and snap on, one by one, at the far end.</p>
+    <p>Powered by protons flowing into the cell, it spins up to <b>300 times a second</b> and can slam
+       into reverse in milliseconds. A single E. coli runs several of them at once.</p>
+    <div class="pro-turn">Now it's our turn to play as part of it.</div>
+    <button id="pro-go">&#9654; Be part of the machine</button>
+    <div class="pro-hint">Press Enter or click the button</div>
+  </div>
+</div>
+
+<script src="js/font.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/gfx.js"></script>
+<script src="js/assembly.js"></script>
+<script src="js/swim.js"></script>
+<script src="js/scenes.js"></script>
+<script src="js/prologue.js"></script>
+<script src="js/dev.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
